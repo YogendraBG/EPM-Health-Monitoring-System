@@ -1,0 +1,13 @@
+
+AUTH_SECRET="generate_a_random_secret_here" # run `npx auth secret` to generate
+
+# Azure AD / Entra ID details
+AUTH_MICROSOFT_ENTRA_ID_ID=""
+AUTH_MICROSOFT_ENTRA_ID_SECRET=""
+AUTH_MICROSOFT_ENTRA_ID_TENANT_ID=""
+
+# App URL
+AUTH_URL="http://localhost:3500"
+
+# Database
+DATABASE_URL="postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
