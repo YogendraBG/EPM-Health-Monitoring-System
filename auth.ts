@@ -1,6 +1,10 @@
-
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+
+// Pre-check for local development to avoid "Invalid URL"
+if (process.env.NODE_ENV === "development" && !process.env.AUTH_URL) {
+    process.env.AUTH_URL = "http://localhost:3500";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers: [
@@ -18,7 +22,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
         }),
     ],
-    secret: process.env.AUTH_SECRET,
+    secret: process.env.AUTH_SECRET || "fallback-secret-for-build-time-only-12345",
+    trustHost: true,
     session: { strategy: "jwt" },
     callbacks: {
         async jwt({ token, user }: any) {
@@ -38,10 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const isSettingsPage = nextUrl.pathname.startsWith("/settings")
 
             if (isSettingsPage) {
-                return isLoggedIn // Only admins who are logged in can access settings
+                return isLoggedIn
             }
 
-            return true // Allow all other pages (Dashboard) to be viewed publicly
+            return true
         },
     },
     pages: {
