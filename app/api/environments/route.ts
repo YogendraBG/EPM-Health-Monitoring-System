@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export async function GET() {
     try {
@@ -15,6 +16,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const session = await auth();
+    if (session?.user?.role !== 'admin') {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     try {
         const { name, token } = await req.json();
 
@@ -22,7 +28,6 @@ export async function POST(req: Request) {
             return new NextResponse('Missing name', { status: 400 });
         }
 
-        // Get max order to append
         const count = await prisma.environment.count();
 
         const environment = await prisma.environment.create({
@@ -41,6 +46,11 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+    const session = await auth();
+    if (session?.user?.role !== 'admin') {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     try {
         const { id, name, token } = await req.json();
 
@@ -64,6 +74,11 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+    const session = await auth();
+    if (session?.user?.role !== 'admin') {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');

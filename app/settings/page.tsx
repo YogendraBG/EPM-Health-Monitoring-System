@@ -1,14 +1,22 @@
 
 import prisma from "@/lib/prisma"
+import { auth } from "@/auth"
+import { redirect } from "next/navigation"
 import { AddEnvironmentForm } from "@/components/AddEnvironmentForm"
 import { AddServiceForm } from "@/components/AddServiceForm"
 import { ServiceItem } from "@/components/ServiceItem"
 import { EnvironmentHeader } from "@/components/EnvironmentHeader"
-import { ArrowLeft, Plus, Key } from "lucide-react"
+import { ArrowLeft, Plus, Key, ShieldAlert } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
+    const session = await auth()
+
+    if (session?.user?.role !== 'admin') {
+        redirect('/login')
+    }
+
     const environments = await prisma.environment.findMany({
         include: { services: true },
         orderBy: { order: "asc" },
@@ -19,10 +27,13 @@ export default async function SettingsPage() {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <a href="/" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <a href="/" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                             <ArrowLeft className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                         </a>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+                            <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest mt-1">Administrator Mode</p>
+                        </div>
                     </div>
                 </div>
 
@@ -36,7 +47,7 @@ export default async function SettingsPage() {
                         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configuration</h2>
                         <div className="space-y-6">
                             {environments.map((env: any) => (
-                                <div key={env.id} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                                <div key={env.id} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transform transition-all">
                                     <div className="border-b border-gray-200 dark:border-gray-700">
                                         <EnvironmentHeader environment={env} />
                                     </div>
@@ -57,7 +68,7 @@ export default async function SettingsPage() {
                                 </div>
                             ))}
                             {environments.length === 0 && (
-                                <div className="text-center py-12 text-gray-500">
+                                <div className="text-center py-12 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
                                     No environments configured. Add one above.
                                 </div>
                             )}

@@ -11,3 +11,8 @@ AUTH_URL="http://localhost:3500"
 
 # Database
 DATABASE_URL="postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+
+# Supabase (Your Config)
+NEXT_PUBLIC_SUPABASE_URL=https://abbafygiugskitmqgncy.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_9aNIlfDN_yYoMCkAhILbwA_1UajQS4l
+

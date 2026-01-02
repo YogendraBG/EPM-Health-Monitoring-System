@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { SignOut } from "@/components/SignOut"
 import { RefreshButton } from "@/components/RefreshButton"
 import prisma from "@/lib/prisma"
-import { Activity, Settings, Server, Plus } from "lucide-react"
+import { Activity, Settings, Server, Plus, LogIn } from "lucide-react"
 import Link from "next/link"
 
 import { EnvironmentFilter } from "@/components/EnvironmentFilter"
@@ -13,20 +13,9 @@ import { HealthChart } from "@/components/HealthChart"
 export const dynamic = 'force-dynamic'
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  let session = await auth()
+  const session = await auth()
   const params = await searchParams
-
-  // Mock session for bypass
-  if (!session?.user) {
-    session = {
-      user: {
-        name: "Guest User",
-        email: "guest@local",
-        image: ""
-      },
-      expires: "2099-01-01"
-    } as any
-  }
+  const isAdmin = session?.user?.role === 'admin'
 
   // Filter keys from URL
   const envFilter = typeof params.env === 'string' ? params.env.split(',') : []
@@ -149,15 +138,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
           <div className="flex items-center gap-4">
             <RefreshButton />
             <div className="h-5 w-px bg-gray-200 dark:bg-gray-800 hidden sm:block"></div>
-            <Link href="/settings" className="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-all">
-              <Settings className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-3 pl-2 sm:border-l border-gray-100 dark:border-gray-800">
-              {session?.user?.image && (
-                <img src={session.user.image} alt="Avatar" className="w-8 h-8 rounded-full ring-2 ring-white dark:ring-gray-800" />
-              )}
-              <SignOut />
-            </div>
+
+            {isAdmin ? (
+              <>
+                <Link href="/settings" className="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-all" title="Settings">
+                  <Settings className="w-5 h-5" />
+                </Link>
+                <div className="flex items-center gap-3 pl-2 sm:border-l border-gray-100 dark:border-gray-800">
+                  <SignOut />
+                </div>
+              </>
+            ) : (
+              <Link href="/login" className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
+                <LogIn className="w-4 h-4" />
+                <span>Admin Login</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -184,7 +180,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
-                  {/* Featured Analytics Card - Adjusted for density */}
+                  {/* Featured Analytics Card */}
                   <div className="col-span-2 md:col-span-2 bg-white dark:bg-gray-900 rounded-[1.5rem] p-4 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between group/chart hover:shadow-lg transition-all">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">7-Day Trend</span>
@@ -240,9 +236,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
                       </div>
                     )
                   })}
+
                   {env.services.length === 0 && (
                     <div className="col-span-full py-8 text-center bg-gray-50/10 dark:bg-gray-900/10 rounded-[1.5rem] border border-dashed border-gray-100 dark:border-gray-800">
-                      <Link href="/settings" className="text-[9px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-500">+ Connect Service</Link>
+                      {isAdmin ? (
+                        <Link href="/settings" className="text-[9px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-500">+ Connect Service</Link>
+                      ) : (
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">No Services Configured</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -257,13 +258,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
                 <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Welcome to EPM Monitor</h3>
                 <p className="mt-2 text-gray-500 font-medium">Get started by setting up your first environment.</p>
                 <div className="mt-10">
-                  <Link
-                    href="/settings"
-                    className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
-                  >
-                    <Plus className="-ml-1 mr-2 h-5 w-5" />
-                    Configure Environments
-                  </Link>
+                  {isAdmin ? (
+                    <Link
+                      href="/settings"
+                      className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
+                    >
+                      <Plus className="-ml-1 mr-2 h-5 w-5" />
+                      Configure Environments
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/login"
+                      className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
+                    >
+                      <LogIn className="-ml-1 mr-2 h-5 w-5" />
+                      Admin Login to Configure
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

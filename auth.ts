@@ -1,26 +1,49 @@
 
 import NextAuth from "next-auth"
-import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id"
+import Credentials from "next-auth/providers/credentials"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     providers: [
-        MicrosoftEntraID({
-            clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
-            clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-            issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
+        Credentials({
+            name: "Credentials",
+            credentials: {
+                username: { label: "Username", type: "text" },
+                password: { label: "Password", type: "password" }
+            },
+            async authorize(credentials) {
+                if (credentials?.username === "admin" && credentials?.password === "J@nF1rst") {
+                    return { id: "1", name: "Administrator", role: "admin" }
+                }
+                return null
+            }
         }),
     ],
     trustHost: true,
     callbacks: {
+        async jwt({ token, user }: any) {
+            if (user) {
+                token.role = user.role
+            }
+            return token
+        },
+        async session({ session, token }: any) {
+            if (session.user) {
+                session.user.role = token.role
+            }
+            return session
+        },
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
-            const isOnDashboard = nextUrl.pathname.startsWith("/")
-            if (isOnDashboard) {
-                // if (isLoggedIn) return true
-                // return false // Redirect unauthenticated users to login page
-                return true // BYPASS: Allow access regardless of login status
+            const isSettingsPage = nextUrl.pathname.startsWith("/settings")
+
+            if (isSettingsPage) {
+                return isLoggedIn // Only admins who are logged in can access settings
             }
-            return true
+
+            return true // Allow all other pages (Dashboard) to be viewed publicly
         },
     },
+    pages: {
+        signIn: '/login',
+    }
 })
