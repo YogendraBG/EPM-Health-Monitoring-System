@@ -5,39 +5,56 @@ import { PrismaClient } from '@prisma/client';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    const dbUrl = process.env.DATABASE_URL || '';
+
+    // Safely analyze the string structure
+    const analyzeString = (str: string) => {
+        if (!str) return "MISSING";
+        const hasQuotes = str.startsWith('"') || str.startsWith("'");
+        const hasSpaces = str.trim() !== str;
+        const parts = str.split('@');
+        const middle = parts.length > 1 ? parts[0].split(':') : [];
+        const passwordPart = middle.length > 2 ? middle[2] : "N/A";
+
+        return {
+            length: str.length,
+            startsWithQuote: hasQuotes,
+            endsWithQuote: str.endsWith('"') || str.endsWith("'"),
+            hasWhitespace: hasSpaces,
+            atSymbolCount: str.split('@').length - 1,
+            passwordStart: passwordPart !== "N/A" ? passwordPart.substring(0, 1) : "N/A",
+            passwordEnd: passwordPart !== "N/A" ? passwordPart.slice(-1) : "N/A"
+        };
+    };
+
     const results: any = {
-        urls: {
-            DATABASE_URL: process.env.DATABASE_URL ? "SET (Starts: " + process.env.DATABASE_URL.substring(0, 5) + "... Ends: " + process.env.DATABASE_URL.slice(-5) + ")" : "MISSING",
-            DIRECT_URL: process.env.DIRECT_URL ? "SET (Starts: " + process.env.DIRECT_URL.substring(0, 5) + "... Ends: " + process.env.DIRECT_URL.slice(-5) + ")" : "MISSING",
+        diagnostics: {
+            DATABASE_URL: analyzeString(dbUrl),
+            DIRECT_URL: analyzeString(process.env.DIRECT_URL || '')
         },
         tests: []
     };
 
-    // Test 1: Main Prisma Instance (Pooler)
+    // Test 1: Standard Pooler
     try {
         const prisma = new PrismaClient();
-        const start = Date.now();
         await prisma.$connect();
-        const count = await prisma.environment.count();
-        results.tests.push({ name: 'Main Client (Pooler)', status: 'SUCCESS', count, time: Date.now() - start });
+        results.tests.push({ name: 'Standard Pooler', status: 'SUCCESS' });
         await prisma.$disconnect();
     } catch (err: any) {
-        results.tests.push({ name: 'Main Client (Pooler)', status: 'FAILED', error: err.message });
+        results.tests.push({ name: 'Standard Pooler', status: 'FAILED', error: err.message });
     }
 
-    // Test 2: Direct Client
-    if (process.env.DIRECT_URL) {
+    // Test 2: Try without pgbouncer=true (some newer Supabase projects don't need it)
+    if (dbUrl.includes('pgbouncer=true')) {
         try {
-            const directPrisma = new PrismaClient({
-                datasources: { db: { url: process.env.DIRECT_URL } }
-            });
-            const start = Date.now();
-            await directPrisma.$connect();
-            const count = await directPrisma.environment.count();
-            results.tests.push({ name: 'Direct Client', status: 'SUCCESS', count, time: Date.now() - start });
-            await directPrisma.$disconnect();
+            const cleanUrl = dbUrl.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '');
+            const prismaNoBounce = new PrismaClient({ datasources: { db: { url: cleanUrl } } });
+            await prismaNoBounce.$connect();
+            results.tests.push({ name: 'No Pgbouncer Param', status: 'SUCCESS' });
+            await prismaNoBounce.$disconnect();
         } catch (err: any) {
-            results.tests.push({ name: 'Direct Client', status: 'FAILED', error: err.message });
+            results.tests.push({ name: 'No Pgbouncer Param', status: 'FAILED', error: err.message });
         }
     }
 
