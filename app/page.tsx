@@ -3,12 +3,12 @@ import { auth } from "@/auth"
 import { SignOut } from "@/components/SignOut"
 import { RefreshButton } from "@/components/RefreshButton"
 import prisma from "@/lib/prisma"
-import { Activity, Settings, Server, Plus, LogIn } from "lucide-react"
+import { Activity, Settings, Plus, LogIn } from "lucide-react"
 import Link from "next/link"
 
 import { EnvironmentFilter } from "@/components/EnvironmentFilter"
 import { StatusFilter } from "@/components/StatusFilter"
-import { HealthChart } from "@/components/HealthChart"
+import { DashboardClient } from "@/components/DashboardClient"
 
 export const dynamic = 'force-dynamic'
 
@@ -21,13 +21,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
   const envFilter = typeof params.env === 'string' ? params.env.split(',') : []
   const statusFilter = typeof params.status === 'string' ? params.status : null
 
-  // Fetch environments with services and their latest log
+  // Fetch environments with services and their latest logs (10 for history)
   let environments = await prisma.environment.findMany({
     include: {
       services: {
         include: {
           healthLogs: {
-            take: 1,
+            take: 10,
             orderBy: { timestamp: 'desc' }
           }
         }
@@ -80,12 +80,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
     }
   })
 
-  // Apply filter if present
+  // Apply env filter if present
   if (envFilter.length > 0) {
     environments = environments.filter((env: any) => envFilter.includes(env.name))
   }
 
-  // Calculate metrics
+  // Calculate global metrics
   let totalServices = 0
   let healthyServices = 0
   let downServices = 0
@@ -171,114 +171,40 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ [
             systemStatus={systemStatus}
           />
 
-          <div className="space-y-20">
-            {environments.map((env: any) => (
-              <section key={env.id} className="group/section">
-                <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-10 border-b border-gray-100 dark:border-gray-800 pb-6 transition-colors group-hover/section:border-indigo-100 dark:group-hover/section:border-indigo-900/40">
-                  <h2 className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase">{env.name}</h2>
-                  <span className="text-[10px] font-black text-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-xl uppercase tracking-[0.2em]">{env.services.length} Managed Services</span>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
-                  {/* Featured Analytics Card */}
-                  <div className="col-span-2 md:col-span-2 bg-white dark:bg-gray-900 rounded-[1.5rem] p-4 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between group/chart hover:shadow-lg transition-all">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">7-Day Trend</span>
-                      <div className="flex gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                      </div>
-                    </div>
-                    <div className="h-16">
-                      <HealthChart data={envChartData[env.id]} isMinimal={true} />
-                    </div>
-                  </div>
-
-                  {env.services.map((svc: any) => {
-                    const latest = svc.healthLogs[0]
-                    const isUp = latest?.status === 'UP'
-                    return (
-                      <div key={svc.id} className="group/card relative bg-white dark:bg-gray-900 rounded-[1.2rem] shadow-sm hover:shadow-xl transition-all duration-300 p-3 border border-gray-100 dark:border-gray-800 flex flex-col h-full hover:border-indigo-200 dark:hover:border-indigo-900/40">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className={`p-1.5 rounded-lg ${isUp ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600'}`}>
-                            <Server className="h-3 w-3" />
-                          </div>
-                          {latest ? (
-                            <div className={`w-2 h-2 rounded-full shadow-sm ${isUp ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse ring-2 ring-rose-100 dark:ring-rose-900/30'}`}></div>
-                          ) : (
-                            <div className="w-2 h-2 rounded-full bg-gray-200 dark:bg-gray-800"></div>
-                          )}
-                        </div>
-
-                        <h3 className="font-bold text-[11px] text-gray-900 dark:text-white truncate leading-tight mb-1" title={svc.name}>
-                          {svc.name}
-                        </h3>
-
-                        <div className="mt-auto pt-2 border-t border-gray-50 dark:border-gray-800/50 flex justify-between items-center">
-                          <div className="flex items-baseline gap-0.5">
-                            <span className="text-[11px] font-black text-gray-900 dark:text-white tabular-nums">
-                              {latest ? latest.latency : '-'}
-                              {latest && <span className="text-[7px] font-bold text-gray-400 ml-0.5">ms</span>}
-                            </span>
-                          </div>
-                          <div className="text-[7px] font-bold text-gray-300 dark:text-gray-600 uppercase">
-                            {latest ? new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
-                          </div>
-                        </div>
-
-                        {!isUp && latest?.error && (
-                          <div className="absolute inset-x-0 bottom-full mb-1 flex justify-center opacity-0 group-hover/card:opacity-100 pointer-events-none transition-opacity z-20">
-                            <div className="bg-gray-900 text-white text-[8px] px-2 py-1 rounded shadow-xl whitespace-nowrap">
-                              {latest.error}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  {env.services.length === 0 && (
-                    <div className="col-span-full py-8 text-center bg-gray-50/10 dark:bg-gray-900/10 rounded-[1.5rem] border border-dashed border-gray-100 dark:border-gray-800">
-                      {isAdmin ? (
-                        <Link href="/settings" className="text-[9px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-500">+ Connect Service</Link>
-                      ) : (
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">No Services Configured</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </section>
-            ))}
-
-            {environments.length === 0 && (
-              <div className="text-center py-24 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                <div className="inline-flex p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl mb-6">
-                  <Activity className="h-10 w-10 text-indigo-600" />
-                </div>
-                <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Welcome to EPM Monitor</h3>
-                <p className="mt-2 text-gray-500 font-medium">Get started by setting up your first environment.</p>
-                <div className="mt-10">
-                  {isAdmin ? (
-                    <Link
-                      href="/settings"
-                      className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
-                    >
-                      <Plus className="-ml-1 mr-2 h-5 w-5" />
-                      Configure Environments
-                    </Link>
-                  ) : (
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
-                    >
-                      <LogIn className="-ml-1 mr-2 h-5 w-5" />
-                      Admin Login to Configure
-                    </Link>
-                  )}
-                </div>
+          {environments.length > 0 ? (
+            <DashboardClient
+              environments={environments}
+              envChartData={envChartData}
+              isAdmin={isAdmin}
+            />
+          ) : (
+            <div className="text-center py-24 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+              <div className="inline-flex p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl mb-6">
+                <Activity className="h-10 w-10 text-indigo-600" />
               </div>
-            )}
-          </div>
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Welcome to EPM Monitor</h3>
+              <p className="mt-2 text-gray-500 font-medium">Get started by setting up your first environment.</p>
+              <div className="mt-10">
+                {isAdmin ? (
+                  <Link
+                    href="/settings"
+                    className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
+                  >
+                    <Plus className="-ml-1 mr-2 h-5 w-5" />
+                    Configure Environments
+                  </Link>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center rounded-2xl bg-indigo-600 px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
+                  >
+                    <LogIn className="-ml-1 mr-2 h-5 w-5" />
+                    Admin Login to Configure
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
